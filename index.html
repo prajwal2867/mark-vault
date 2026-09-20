@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MarkVault — Present from Markdown</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs2015.min.css">
+<style>
+  :root {
+    --bg-app: #1e1e1e;
+    --bg-sidebar: #252526;
+    --bg-header: #252526;
+    --bg-slide: #1e1e1e;
+    --bg-hover: #2a2d2e;
+    --bg-selected: #37373d;
+    --border: #3c3c3c;
+    --text: #cccccc;
+    --text-bright: #ffffff;
+    --text-muted: #858585;
+    --accent: #007acc;
+    --accent-hover: #1a8ad4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg-app);
+    color: var(--text);
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+  }
+  button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+
+  /* Header — only essentials */
+  .header {
+    height: 48px;
+    background: var(--bg-header);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .logo { font-size: 16px; font-weight: 600; color: var(--text-bright); }
+  .logo span { color: var(--accent); }
+  .logo-sub { font-size: 12px; color: var(--text-muted); }
+  .header-spacer { flex: 1; }
+  .btn {
+    height: 30px;
+    padding: 0 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.06);
+    color: var(--text);
+  }
+  .btn:hover { background: rgba(255,255,255,0.12); color: var(--text-bright); }
+  .btn.primary { background: var(--accent); color: #fff; font-weight: 500; }
+  .btn.primary:hover { background: var(--accent-hover); }
+
+  .main { flex: 1; display: flex; overflow: hidden; }
+
+  /* Sidebar — files only + search + upload (draggable / collapsible) */
+  .sidebar {
+    width: 260px;
+    min-width: 0;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .sidebar.collapsed {
+    width: 0 !important;
+    border-right: none;
+  }
+  .sidebar.collapsed > * { display: none; }
+  .sidebar.no-transition { transition: none !important; }
+  .resizer {
+    width: 6px;
+    margin-left: -3px;
+    margin-right: -3px;
+    cursor: ew-resize;
+    flex-shrink: 0;
+    z-index: 5;
+    background: transparent;
+  }
+  .resizer:hover, .resizer.dragging { background: var(--accent); }
+  .show-sidebar-btn {
+    height: 28px; padding: 0 10px; border-radius: 4px;
+    background: rgba(255,255,255,0.06); font-size: 12px;
+    display: none; align-items: center; flex-shrink: 0;
+  }
+  .show-sidebar-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+  .show-sidebar-btn.visible { display: inline-flex; }
+  .search-box { padding: 12px; }
+  .search-box input {
+    width: 100%;
+    padding: 6px 10px;
+    background: #3c3c3c;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+  }
+  .search-box input:focus { border-color: var(--accent); }
+  .upload-zone {
+    margin: 0 12px 12px;
+    padding: 12px;
+    border: 1px dashed #454545;
+    border-radius: 4px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .upload-zone:hover { border-color: var(--accent); background: rgba(0,122,204,0.08); }
+  .upload-zone.dragover { border-color: var(--accent); background: rgba(0,122,204,0.15); }
+  .upload-zone small { display: block; color: var(--text-muted); font-size: 11px; margin-top: 2px; }
+  .file-list { flex: 1; overflow-y: auto; padding-bottom: 12px; }
+  .file-item {
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .file-item:hover { background: var(--bg-hover); }
+  .file-item.active { background: var(--bg-selected); color: var(--text-bright); }
+  .file-item .dot {
+    width: 22px; height: 22px; border-radius: 4px;
+    background: #519aba; color: #fff;
+    font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .file-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-item .del { opacity: 0; font-size: 15px; color: var(--text-muted); padding: 0 4px; }
+  .file-item:hover .del { opacity: 1; }
+  .file-item .del:hover { color: #f44747; }
+  .sidebar-hint { padding: 10px 14px; font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border); }
+
+  /* Stage — slides */
+  .stage { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  .stage-bar {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .deck-name { font-size: 13px; color: var(--text-bright); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .slide-count { font-size: 12px; color: var(--text-muted); }
+  .stage-bar .spacer { flex: 1; }
+  .nav-btn {
+    height: 28px; padding: 0 12px; border-radius: 4px;
+    background: rgba(255,255,255,0.06); font-size: 13px;
+  }
+  .nav-btn:hover:not(:disabled) { background: rgba(255,255,255,0.12); color: #fff; }
+  .nav-btn:disabled { opacity: 0.35; cursor: default; }
+  .progress { height: 2px; background: var(--border); flex-shrink: 0; }
+  .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width .2s; }
+
+  .slide-viewport { flex: 1; overflow-y: auto; display: flex; justify-content: center; }
+  .slide {
+    max-width: 900px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 32px 48px 80px;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+  .slide h1 { font-size: 2em; font-weight: 600; color: var(--text-bright); margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .slide h2 { font-size: 1.5em; font-weight: 600; color: var(--text-bright); margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  .slide h3 { font-size: 1.25em; font-weight: 600; color: var(--text-bright); margin: 24px 0 10px; }
+  .slide h4 { font-size: 1.1em; font-weight: 600; color: var(--text-bright); margin: 20px 0 8px; }
+  .slide p { margin: 0 0 16px; }
+  .slide strong { color: var(--text-bright); font-weight: 600; }
+  .slide em { font-style: italic; }
+  .slide a { color: #3794ff; text-decoration: none; }
+  .slide a:hover { text-decoration: underline; }
+  .slide ul, .slide ol { padding-left: 2em; margin: 0 0 16px; }
+  .slide li { margin-bottom: 4px; }
+  .slide blockquote { margin: 0 0 16px; padding: 8px 16px; border-left: 4px solid #454545; color: var(--text-muted); background: rgba(255,255,255,0.02); }
+  .slide blockquote p { margin: 0; }
+  .slide code { font-family: "Consolas", "Courier New", monospace; font-size: 0.9em; background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 3px; color: #ce9178; }
+  .slide pre { background: #1e1e1e; border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; overflow-x: auto; margin: 0 0 16px; font-size: 13px; line-height: 1.5; }
+  .slide pre code { background: transparent; padding: 0; color: var(--text); }
+  .slide table { width: 100%; border-collapse: collapse; margin: 0 0 16px; font-size: 13px; }
+  .slide th, .slide td { padding: 8px 12px; border: 1px solid var(--border); text-align: left; }
+  .slide th { background: rgba(255,255,255,0.04); font-weight: 600; color: var(--text-bright); }
+  .slide tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+  .slide hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+  .slide img { max-width: 100%; border-radius: 4px; }
+  .slide input[type="checkbox"] { margin-right: 6px; accent-color: var(--accent); }
+  .slide .task-list-item { list-style: none; margin-left: -1.4em; }
+
+  .dots { display: flex; gap: 6px; align-items: center; }
+  .dots button { width: 8px; height: 8px; border-radius: 50%; background: #454545; padding: 0; }
+  .dots button.active { background: var(--accent); }
+
+  .empty {
+    flex: 1; display: none; align-items: center; justify-content: center;
+    flex-direction: column; text-align: center; color: var(--text-muted); padding: 40px;
+  }
+  .empty.show { display: flex; }
+  .empty h2 { color: var(--text); font-weight: 400; margin-bottom: 8px; }
+  .empty code { background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 4px; color: #ce9178; }
+
+  .hint { font-size: 11px; color: var(--text-muted); }
+  kbd { background: rgba(255,255,255,0.08); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 11px; font-family: inherit; }
+
+  /* Fullscreen present mode — same preview font, just fullscreen */
+  .stage.present { background: #000; }
+  .stage.present .slide { max-width: 1100px; }
+
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: #252526; border-left: 3px solid var(--accent);
+    padding: 10px 16px; border-radius: 4px; font-size: 13px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.5);
+    opacity: 0; transform: translateY(8px); transition: all .2s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: none; }
+
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .resizer { display: none; }
+    .slide { padding: 28px 22px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="logo">Mark<span>Vault</span></div>
+  <div class="logo-sub"></div>
+  <div class="header-spacer"></div>
+  <button class="btn" id="uploadBtn">Upload</button>
+  <button class="btn primary" id="presentBtn">Present</button>
+</header>
+
+<div class="main">
+  <aside class="sidebar" id="sidebar">
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="Search decks..." />
+    </div>
+    <div class="upload-zone" id="uploadZone">
+      Drop .md files here or click
+      <small>each --- on its own line = new slide</small>
+      <input type="file" id="fileInput" accept=".md,.markdown,text/markdown" multiple hidden />
+    </div>
+    <div class="file-list" id="fileList"></div>
+    <div class="sidebar-hint">Tip: split slides with <code>---</code> in your markdown.</div>
+  </aside>
+  <div class="resizer" id="resizer" title="Drag left to hide, right to show (double-click to toggle)"></div>
+
+  <section class="stage" id="stage">
+    <div class="stage-bar" id="stageBar" style="display:none">
+      <button class="show-sidebar-btn" id="showSidebarBtn" title="Show side panel">Show panel</button>
+      <span class="deck-name" id="deckName"></span>
+      <span class="slide-count" id="slideCount"></span>
+      <div class="spacer"></div>
+      <div class="dots" id="dots"></div>
+      <button class="nav-btn" id="prevBtn">← Prev</button>
+      <button class="nav-btn" id="nextBtn">Next →</button>
+    </div>
+    <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+
+    <div class="slide-viewport" id="viewport" style="display:none">
+      <article class="slide" id="slide"></article>
+    </div>
+
+    <div class="empty show" id="empty">
+      <h2>No deck selected</h2>
+      <p>Upload a <code>.md</code> file to start presenting.<br><br>
+      <span class="hint"><kbd>←</kbd> <kbd>→</kbd> or <kbd>Space</kbd> to move · <kbd>F</kbd> fullscreen · <kbd>Esc</kbd> exit</span></p>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast"><span id="toastMsg"></span></div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script>
+const state = { docs: [], activeId: null, slideIndex: 0, search: '' };
+
+const $ = id => document.getElementById(id);
+const fileList = $('fileList'), slideEl = $('slide');
+
+function uid() { return Math.random().toString(36).slice(2, 10); }
+
+marked.setOptions({
+  gfm: true, breaks: true,
+  highlight(code, lang) {
+    if (lang && hljs.getLanguage(lang)) {
+      try { return hljs.highlight(code, { language: lang }).value; } catch (e) {}
+    }
+    try { return hljs.highlightAuto(code).value; } catch (e) {}
+    return code;
+  }
+});
+const renderer = new marked.Renderer();
+renderer.listitem = function(text, task, checked) {
+  let t = typeof text === 'object' && text.text ? text.text : text;
+  let isTask = typeof text === 'object' ? text.task : task;
+  let isChecked = typeof text === 'object' ? text.checked : checked;
+  if (isTask) return `<li class="task-list-item"><input type="checkbox" ${isChecked ? 'checked' : ''} disabled />${t}</li>\n`;
+  return `<li>${t}</li>\n`;
+};
+marked.use({ renderer });
+
+// Slides: split on a line that is exactly ---
+function splitSlides(md) {
+  const parts = String(md || '').split(/^\s*---\s*$/m);
+  const slides = parts.map(s => s.trim()).filter(Boolean);
+  return slides.length ? slides : ['# Empty deck\n\nAdd some markdown to get started.'];
+}
+
+function activeDoc() { return state.docs.find(d => d.id === state.activeId); }
+
+function renderList() {
+  const q = state.search.toLowerCase().trim();
+  const docs = state.docs.filter(d => !q || d.name.toLowerCase().includes(q));
+  if (!docs.length) {
+    fileList.innerHTML = `<div style="padding:8px 14px;font-size:12px;color:var(--text-muted)">${q ? 'No decks match' : 'No decks yet — upload one'}</div>`;
+    return;
+  }
+  fileList.innerHTML = docs.map(d =>
+    `<div class="file-item ${d.id === state.activeId ? 'active' : ''}" data-id="${d.id}">
+       <div class="dot">M</div>
+       <div class="name">${escapeHtml(d.name)}</div>
+       <button class="del" data-del="${d.id}" title="Remove">×</button>
+     </div>`).join('');
+  fileList.querySelectorAll('.file-item').forEach(el => {
+    el.addEventListener('click', e => {
+      if (e.target.closest('[data-del]')) return;
+      selectDoc(el.dataset.id);
+    });
+  });
+  fileList.querySelectorAll('[data-del]').forEach(b => {
+    b.addEventListener('click', e => { e.stopPropagation(); deleteDoc(b.dataset.del); });
+  });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function selectDoc(id) {
+  state.activeId = id;
+  state.slideIndex = 0;
+  saveDocs();
+  renderList();
+  renderSlide();
+}
+
+function deleteDoc(id) {
+  const doc = state.docs.find(d => d.id === id);
+  state.docs = state.docs.filter(d => d.id !== id);
+  if (state.activeId === id) {
+    state.activeId = state.docs.length ? state.docs[0].id : null;
+    state.slideIndex = 0;
+  }
+  saveDocs();
+  renderList();
+  renderSlide();
+  toast(doc ? `Removed "${doc.name}"` : 'Deck removed');
+}
+
+function renderSlide() {
+  const doc = activeDoc();
+  const has = !!doc;
+  $('empty').classList.toggle('show', !has);
+  $('viewport').style.display = has ? 'flex' : 'none';
+  $('stageBar').style.display = has ? 'flex' : 'none';
+  if (!doc) {
+    // never leave user stuck with hidden sidebar and no decks
+    $('sidebar').classList.remove('collapsed');
+    if (window.__syncShowBtn) window.__syncShowBtn();
+    return;
+  }
+
+  const slides = splitSlides(doc.content);
+  state.slideIndex = Math.min(Math.max(0, state.slideIndex), slides.length - 1);
+
+  try { slideEl.innerHTML = marked.parse(slides[state.slideIndex]); }
+  catch (e) { slideEl.textContent = slides[state.slideIndex]; }
+
+  $('viewport').scrollTop = 0;
+  $('deckName').textContent = doc.name;
+  $('slideCount').textContent = `Slide ${state.slideIndex + 1} / ${slides.length}`;
+  $('progressFill').style.width = ((state.slideIndex + 1) / slides.length * 100) + '%';
+  $('prevBtn').disabled = state.slideIndex === 0;
+  $('nextBtn').disabled = state.slideIndex === slides.length - 1;
+
+  $('dots').innerHTML = slides.map((_, i) =>
+    `<button data-i="${i}" class="${i === state.slideIndex ? 'active' : ''}" title="Go to slide ${i + 1}"></button>`).join('');
+  $('dots').querySelectorAll('button').forEach(b =>
+    b.addEventListener('click', () => { state.slideIndex = +b.dataset.i; renderSlide(); }));
+}
+
+function next() {
+  const doc = activeDoc(); if (!doc) return;
+  const n = splitSlides(doc.content).length;
+  if (state.slideIndex < n - 1) { state.slideIndex++; renderSlide(); }
+}
+function prev() {
+  if (state.slideIndex > 0) { state.slideIndex--; renderSlide(); }
+}
+
+function uniqueName(name) {
+  const names = new Set(state.docs.map(d => d.name.toLowerCase()));
+  if (!names.has(name.toLowerCase())) return name;
+  const m = name.match(/^(.*)(\.md)$/i);
+  const base = m ? m[1] : name;
+  const ext = m ? m[2] : '.md';
+  let i = 1;
+  while (names.has(`${base} (${i})${ext}`.toLowerCase())) i++;
+  return `${base} (${i})${ext}`;
+}
+
+function addDoc(name, content) {
+  content = String(content || '');
+  if (!content.trim()) { toast(`Skipped "${name}" — file is empty`); return; }
+  if (content.length > 500000) { toast(`Skipped "${name}" — file too large`); return; }
+  name = uniqueName(name);
+  state.docs.unshift({ id: uid(), name, content, uploadedAt: new Date().toISOString() });
+  state.activeId = state.docs[0].id;
+  state.slideIndex = 0;
+  saveDocs();
+  renderList(); renderSlide();
+  toast(`Loaded "${name}"`);
+}
+
+function handleFiles(files) {
+  if (!files || !files.length) return;
+  let queued = 0;
+  [...files].forEach(f => {
+    if (!/\.(md|markdown)$/i.test(f.name) && f.type !== 'text/markdown') {
+      toast(`Skipped "${f.name}" — not .md`);
+      return;
+    }
+    if (f.size > 2000000) { toast(`Skipped "${f.name}" — over 2 MB`); return; }
+    queued++;
+    const r = new FileReader();
+    r.onerror = () => toast(`Could not read "${f.name}"`);
+    r.onload = e => addDoc(f.name, e.target.result);
+    r.readAsText(f);
+  });
+}
+
+// Persistence — decks survive reload / deploy (localStorage)
+const LS_DOCS = 'markvault_docs_v1';
+const LS_ACTIVE = 'markvault_active_v1';
+function saveDocs() {
+  try {
+    localStorage.setItem(LS_DOCS, JSON.stringify(state.docs));
+    localStorage.setItem(LS_ACTIVE, JSON.stringify(state.activeId));
+  } catch (e) {
+    // quota full or private mode — app still works for this session
+  }
+}
+function loadDocs() {
+  try {
+    const raw = localStorage.getItem(LS_DOCS);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return;
+    state.docs = parsed
+      .filter(d => d && typeof d.name === 'string' && typeof d.content === 'string')
+      // purge old built-in demo deck
+      .filter(d => !(d.name.toLowerCase() === 'welcome.md' && d.content.includes('Welcome to MarkVault')))
+      .map(d => ({ id: typeof d.id === 'string' ? d.id : uid(), name: d.name, content: d.content, uploadedAt: d.uploadedAt || new Date().toISOString() }));
+    // if we removed the demo, persist the clean list immediately
+    if (parsed.length !== state.docs.length) {
+      try {
+        localStorage.setItem(LS_DOCS, JSON.stringify(state.docs));
+      } catch (e) {}
+    }
+    const activeRaw = localStorage.getItem(LS_ACTIVE);
+    const activeId = activeRaw ? JSON.parse(activeRaw) : null;
+    state.activeId = state.docs.some(d => d.id === activeId) ? activeId : (state.docs.length ? state.docs[0].id : null);
+  } catch (e) {
+    state.docs = [];
+    state.activeId = null;
+  }
+}
+
+let toastTimer;
+function toast(msg) {
+  $('toastMsg').textContent = msg;
+  $('toast').classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $('toast').classList.remove('show'), 2000);
+}
+
+function togglePresent() {
+  const stage = $('stage');
+  if (!document.fullscreenElement) {
+    stage.requestFullscreen?.().catch(() => {});
+    stage.classList.add('present');
+  } else {
+    document.exitFullscreen?.();
+  }
+}
+document.addEventListener('fullscreenchange', () => {
+  $('stage').classList.toggle('present', !!document.fullscreenElement);
+});
+
+// Events
+$('searchInput').addEventListener('input', e => { state.search = e.target.value; renderList(); });
+$('uploadBtn').addEventListener('click', () => $('fileInput').click());
+$('uploadZone').addEventListener('click', () => $('fileInput').click());
+$('fileInput').addEventListener('change', e => { handleFiles(e.target.files); e.target.value = ''; });
+['dragenter','dragover'].forEach(ev => $('uploadZone').addEventListener(ev, e => { e.preventDefault(); $('uploadZone').classList.add('dragover'); }));
+['dragleave','drop'].forEach(ev => $('uploadZone').addEventListener(ev, e => { e.preventDefault(); $('uploadZone').classList.remove('dragover'); }));
+$('uploadZone').addEventListener('drop', e => handleFiles(e.dataTransfer.files));
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => e.preventDefault());
+
+$('prevBtn').addEventListener('click', prev);
+$('nextBtn').addEventListener('click', next);
+$('presentBtn').addEventListener('click', togglePresent);
+
+// Sidebar drag-to-hide / resize
+(function initSidebarDrag() {
+  const sidebar = $('sidebar'), resizer = $('resizer'), showBtn = $('showSidebarBtn');
+  let lastWidth = 260, dragging = false, startX = 0, startW = 260, moved = false;
+
+  function setCollapsed(collapsed) {
+    sidebar.classList.toggle('collapsed', collapsed);
+    showBtn.classList.toggle('visible', collapsed);
+    if (!collapsed) sidebar.style.width = lastWidth + 'px';
+  }
+  function syncShowBtn() {
+    showBtn.classList.toggle('visible', sidebar.classList.contains('collapsed'));
+  }
+  // expose for renderSlide (stageBar visibility)
+  window.__syncShowBtn = syncShowBtn;
+
+  showBtn.addEventListener('click', () => setCollapsed(false));
+
+  resizer.addEventListener('dblclick', () => {
+    setCollapsed(!sidebar.classList.contains('collapsed'));
+  });
+
+  resizer.addEventListener('mousedown', e => {
+    dragging = true; moved = false;
+    startX = e.clientX;
+    startW = sidebar.classList.contains('collapsed') ? 0 : sidebar.getBoundingClientRect().width;
+    sidebar.classList.add('no-transition');
+    resizer.classList.add('dragging');
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) > 3) moved = true;
+    let newW = startW + dx;
+    if (newW < 80) {
+      // preview hiding while dragging left
+      sidebar.classList.add('collapsed');
+      sidebar.style.width = '0px';
+    } else {
+      sidebar.classList.remove('collapsed');
+      newW = Math.min(480, Math.max(160, newW));
+      sidebar.style.width = newW + 'px';
+    }
+    syncShowBtn();
+  });
+  document.addEventListener('mouseup', e => {
+    if (!dragging) return;
+    dragging = false;
+    sidebar.classList.remove('no-transition');
+    resizer.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    const collapsed = sidebar.classList.contains('collapsed');
+    if (!collapsed) {
+      const w = sidebar.getBoundingClientRect().width;
+      lastWidth = Math.min(480, Math.max(160, Math.round(w)));
+      sidebar.style.width = lastWidth + 'px';
+    }
+    syncShowBtn();
+    // treat as click (no drag) -> toggle
+    if (!moved && Math.abs(e.clientX - startX) <= 3) {
+      // single click on resizer toggles
+      setCollapsed(!collapsed);
+    }
+  });
+
+  // touch support
+  resizer.addEventListener('touchstart', e => {
+    dragging = true;
+    startX = e.touches[0].clientX;
+    startW = sidebar.classList.contains('collapsed') ? 0 : sidebar.getBoundingClientRect().width;
+    sidebar.classList.add('no-transition');
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    const dx = e.touches[0].clientX - startX;
+    let newW = startW + dx;
+    if (newW < 80) { sidebar.classList.add('collapsed'); sidebar.style.width = '0px'; }
+    else {
+      sidebar.classList.remove('collapsed');
+      sidebar.style.width = Math.min(480, Math.max(160, newW)) + 'px';
+    }
+    syncShowBtn();
+  }, { passive: true });
+  document.addEventListener('touchend', () => {
+    if (!dragging) return;
+    dragging = false;
+    sidebar.classList.remove('no-transition');
+    if (!sidebar.classList.contains('collapsed')) {
+      lastWidth = Math.round(sidebar.getBoundingClientRect().width);
+      sidebar.style.width = lastWidth + 'px';
+    }
+    syncShowBtn();
+  });
+  syncShowBtn();
+})();
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); next(); }
+  else if (e.key === 'ArrowLeft') prev();
+  else if (e.key.toLowerCase() === 'f') togglePresent();
+});
+
+// Init — load saved decks
+loadDocs();
+state.slideIndex = 0;
+renderList();
+renderSlide();
+</script>
+</body>
+</html>
