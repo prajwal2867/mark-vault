@@ -1,0 +1,31 @@
+
+## 1. Enhanced Visuals & Preview (Quick Wins)
+
+* Markdown Rendering Engine: Make sure you aren't just dumping raw text on the right side. Use a client-side JavaScript library like marked.js or markdown-it to instantly convert .md syntax into styled HTML headers, lists, and code blocks.
+* Syntax Highlighting: If your Markdown files contain code snippets, integrate Prism.js or Highlight.js so code blocks are beautiful and readable.
+* Clean Dark Mode Styling: Give the right-hand preview panel a slight background contrast variation (like a slightly lighter charcoal grey) and add generous padding so the text breathes.
+
+## 2. User Experience (UX) Enhancements
+
+* Drag-and-Drop Active States: Change the border color or background of the upload box when a user drags a file over it. This gives instant visual feedback.
+* Active Deck Selection: When a file is uploaded, list its name in the sidebar. Apply a subtle "active" highlight color to the currently selected file so the user knows exactly what they are viewing.
+* Resizable Sidebar: Add a draggable border between the left sidebar and the right preview pane so users can adjust their reading workspace.
+
+## 3. Core Functional Ideas
+
+* Persistent Storage (Local): Use the browser’s localStorage or IndexedDB. When a user uploads a .md file, save the content locally. This way, when they refresh the page or revisit the site on Vercel, their decks are still right there without needing a backend database.
+* Side-by-Side Editor: Turn the right panel into a tabbed interface with two modes: Preview and Edit. If they see a typo, they can fix it directly in the app and click a "Download Updated .md" button.
+* Flashcard Mode: Given the name "MarkVault" and the phrase "Search decks...", if you intend this for study, you could parse specific Markdown syntax (like Question --- Answer or bullet points) to generate interactive flip-cards.
+
+## 4. Vercel Deployment Tips
+
+* Keep it Jamstack: Since this can run entirely on client-side JavaScript, Vercel will host it as a static site for free, resulting in blistering fast load times.
+* Framework Consideration: If you want to scale this easily, consider moving your plain HTML/JS structure into a framework like Next.js or Vite + React. Vercel optimizes beautifully for these, and it makes handling state (like uploaded files and sidebar lists) much cleaner as your app grows.
+
+To help you write the code for the next feature, tell me:
+
+* Are you building this using vanilla HTML/JavaScript, or are you open to using a framework like React / Next.js?
+* What is the exact goal of the app—is it a simple document viewer, a markdown editor, or an interactive flashcard study tool?
+* Which feature would you like to implement first?
+
+
